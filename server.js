@@ -9,6 +9,8 @@ const xss = require('xss-clean');
 const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
 const errorHandler = require('./middleware/error');
 const connectDB = require('./config/db');
 
@@ -53,6 +55,10 @@ app.use(hpp());
 
 // Security: Enable CORS
 app.use(cors());
+
+// Swagger Docs
+const swaggerDoc = YAML.load('./swagger.yaml');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));
 
 // Route Files
 const bootcamps = require('./routes/bootcams');

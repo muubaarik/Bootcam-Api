@@ -1,0 +1,809 @@
+openapi: 3.0.0
+info:
+  title: Bootcam API
+  description: A full-featured REST API for bootcamp directory management
+  version: 1.0.0
+  contact:
+    name: Mubarak
+    url: https://github.com/muubaarik/Bootcam-Api
+
+servers:
+  - url: https://bootcam-api-4hmt.onrender.com/api/v1
+    description: Production
+  - url: http://localhost:5001/api/v1
+    description: Local Development
+
+tags:
+  - name: Auth
+    description: User authentication
+  - name: Bootcamps
+    description: Bootcamp management
+  - name: Courses
+    description: Course management
+  - name: Reviews
+    description: Bootcamp reviews
+  - name: Users
+    description: User management (Admin only)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Bootcamp:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        website:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+        careers:
+          type: array
+          items:
+            type: string
+        housing:
+          type: boolean
+        jobAssistance:
+          type: boolean
+        jobGuarantee:
+          type: boolean
+        acceptGi:
+          type: boolean
+        averageRating:
+          type: number
+        averageCost:
+          type: number
+        photo:
+          type: string
+        createdAt:
+          type: string
+
+    Course:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        weeks:
+          type: string
+        tuition:
+          type: number
+        minimumSkill:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        scholarshipsAvailable:
+          type: boolean
+        bootcamp:
+          type: string
+
+    Review:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        text:
+          type: string
+        rating:
+          type: number
+        bootcamp:
+          type: string
+        user:
+          type: string
+
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [user, publisher, admin]
+        createdAt:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+
+paths:
+
+  # ─── AUTH ───────────────────────────────────────────
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role]
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  example: john@test.com
+                password:
+                  type: string
+                  example: "123456"
+                role:
+                  type: string
+                  enum: [user, publisher]
+                  example: publisher
+      responses:
+        "201":
+          description: User registered, returns token
+        "400":
+          description: Bad request
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and get token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  example: mubarak@gmail.com
+                password:
+                  type: string
+                  example: newpassword123
+      responses:
+        "200":
+          description: Returns JWT token
+        "401":
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get logged in user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user data
+        "401":
+          description: Not authorized
+
+  /auth/forgotpassword:
+    post:
+      tags: [Auth]
+      summary: Send password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: john@test.com
+      responses:
+        "200":
+          description: Email sent
+
+  /auth/resetpassword/{resettoken}:
+    put:
+      tags: [Auth]
+      summary: Reset password using token from email
+      parameters:
+        - in: path
+          name: resettoken
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  example: newpassword123
+      responses:
+        "200":
+          description: Password updated
+
+  # ─── BOOTCAMPS ──────────────────────────────────────
+
+  /bootcamps:
+    get:
+      tags: [Bootcamps]
+      summary: Get all bootcamps
+      description: |
+        Supports filtering, sorting, pagination.
+
+        **Filter examples:**
+        - `?housing=true`
+        - `?averageCost[lte]=10000`
+        - `?careers[in]=Web Development`
+
+        **Sort:** `?sort=-createdAt`
+
+        **Select fields:** `?select=name,description`
+
+        **Pagination:** `?page=1&limit=5`
+      parameters:
+        - in: query
+          name: select
+          schema:
+            type: string
+          example: name,description
+        - in: query
+          name: sort
+          schema:
+            type: string
+          example: -createdAt
+        - in: query
+          name: page
+          schema:
+            type: integer
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          example: 5
+        - in: query
+          name: housing
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of bootcamps
+
+    post:
+      tags: [Bootcamps]
+      summary: Create a bootcamp
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description, address, careers]
+              properties:
+                name:
+                  type: string
+                  example: My Coding Bootcamp
+                description:
+                  type: string
+                  example: Learn to code fast
+                website:
+                  type: string
+                  example: https://mybootcamp.com
+                phone:
+                  type: string
+                  example: "(617) 555-1234"
+                email:
+                  type: string
+                  example: info@mybootcamp.com
+                address:
+                  type: string
+                  example: 233 Bay State Rd Boston MA 02215
+                careers:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Web Development"]
+                housing:
+                  type: boolean
+                  example: true
+                jobAssistance:
+                  type: boolean
+                  example: true
+                jobGuarantee:
+                  type: boolean
+                  example: false
+                acceptGi:
+                  type: boolean
+                  example: true
+      responses:
+        "201":
+          description: Bootcamp created
+        "401":
+          description: Not authorized
+        "400":
+          description: Validation error
+
+  /bootcamps/{id}:
+    get:
+      tags: [Bootcamps]
+      summary: Get single bootcamp
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bootcamp data
+        "404":
+          description: Not found
+
+    put:
+      tags: [Bootcamps]
+      summary: Update bootcamp (owner/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                housing:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated bootcamp
+        "403":
+          description: Not authorized
+
+    delete:
+      tags: [Bootcamps]
+      summary: Delete bootcamp (owner/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+        "403":
+          description: Not authorized
+
+  /bootcamps/{id}/photo:
+    put:
+      tags: [Bootcamps]
+      summary: Upload bootcamp photo (owner/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Photo uploaded
+
+  /bootcamps/radius/{zipcode}/{distance}:
+    get:
+      tags: [Bootcamps]
+      summary: Get bootcamps within radius
+      description: Find bootcamps within X miles of a zipcode
+      parameters:
+        - in: path
+          name: zipcode
+          required: true
+          schema:
+            type: string
+          example: "02215"
+        - in: path
+          name: distance
+          required: true
+          schema:
+            type: number
+          example: 50
+      responses:
+        "200":
+          description: Bootcamps within radius
+
+  # ─── COURSES ────────────────────────────────────────
+
+  /courses:
+    get:
+      tags: [Courses]
+      summary: Get all courses
+      responses:
+        "200":
+          description: List of courses
+
+  /bootcamps/{bootcampId}/courses:
+    get:
+      tags: [Courses]
+      summary: Get courses for a bootcamp
+      parameters:
+        - in: path
+          name: bootcampId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Courses for bootcamp
+
+    post:
+      tags: [Courses]
+      summary: Add course to bootcamp (publisher/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: bootcampId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description, weeks, tuition, minimumSkill]
+              properties:
+                title:
+                  type: string
+                  example: Full Stack Web Dev
+                description:
+                  type: string
+                  example: Learn HTML, CSS, JS, Node.js
+                weeks:
+                  type: string
+                  example: "12"
+                tuition:
+                  type: number
+                  example: 8000
+                minimumSkill:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
+                  example: beginner
+                scholarshipsAvailable:
+                  type: boolean
+                  example: true
+      responses:
+        "201":
+          description: Course created
+
+  /courses/{id}:
+    get:
+      tags: [Courses]
+      summary: Get single course
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Course data
+
+    put:
+      tags: [Courses]
+      summary: Update course (owner/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                tuition:
+                  type: number
+      responses:
+        "200":
+          description: Updated course
+
+    delete:
+      tags: [Courses]
+      summary: Delete course (owner/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /courses/{id}/video:
+    put:
+      tags: [Courses]
+      summary: Upload course video (owner/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Video uploaded
+
+  # ─── REVIEWS ────────────────────────────────────────
+
+  /reviews:
+    get:
+      tags: [Reviews]
+      summary: Get all reviews
+      responses:
+        "200":
+          description: List of reviews
+
+  /bootcamps/{bootcampId}/reviews:
+    get:
+      tags: [Reviews]
+      summary: Get reviews for a bootcamp
+      parameters:
+        - in: path
+          name: bootcampId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reviews for bootcamp
+
+    post:
+      tags: [Reviews]
+      summary: Add review (user/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: bootcampId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, text, rating]
+              properties:
+                title:
+                  type: string
+                  example: Amazing bootcamp!
+                text:
+                  type: string
+                  example: Learned so much in 3 months
+                rating:
+                  type: number
+                  minimum: 1
+                  maximum: 10
+                  example: 9
+      responses:
+        "201":
+          description: Review created
+
+  /reviews/{id}:
+    get:
+      tags: [Reviews]
+      summary: Get single review
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Review data
+
+    put:
+      tags: [Reviews]
+      summary: Update review (owner/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                rating:
+                  type: number
+      responses:
+        "200":
+          description: Updated review
+
+    delete:
+      tags: [Reviews]
+      summary: Delete review (owner/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  # ─── USERS ──────────────────────────────────────────
+
+  /users:
+    get:
+      tags: [Users]
+      summary: Get all users (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of users
+        "403":
+          description: Forbidden
+
+    post:
+      tags: [Users]
+      summary: Create user (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [user, publisher, admin]
+      responses:
+        "201":
+          description: User created
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Get single user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User data
+
+    put:
+      tags: [Users]
+      summary: Update user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                role:
+                  type: string
+      responses:
+        "200":
+          description: Updated user
+
+    delete:
+      tags: [Users]
+      summary: Delete user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
