@@ -137,7 +137,7 @@ BootcampSchema.pre('save', async function(next) {
     try {
         const loc = await geocoder.geocode(this.address);
 
-        if (loc && loc.length > 0) {
+        if (loc && loc.length > 0 && loc[0].latitude && loc[0].longitude) {
             this.location = {
                 type: 'Point',
                 coordinates: [loc[0].longitude, loc[0].latitude],
@@ -150,12 +150,18 @@ BootcampSchema.pre('save', async function(next) {
             };
             // Do not save the raw address in the database
             this.address = undefined;
+        } else {
+            // Geocoding returned no results — clear location so 2dsphere index stays valid
+            this.location = undefined;
+            console.log('Geocoding returned no results for address:', this.address);
         }
 
         next();
     } catch (err) {
-        console.log('Geocoding failed, saving without location:'.yellow, err.message);
-        next(); // Continue saving even if geocoding fails
+        // Geocoding failed — clear partial location so 2dsphere index stays valid
+        this.location = undefined;
+        console.log('Geocoding failed, saving without location:', err.message);
+        next();
     }
 });
 
