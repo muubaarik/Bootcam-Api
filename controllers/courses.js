@@ -2,6 +2,7 @@ const path = require('path');
 const ErrorResponse = require('../utils/errorResponse');
 const Course = require('../models/Course');
 const Bootcamp = require('../models/Bootcamps');
+const cloudinary = require('../utils/cloudinary');
 
 // @desc    Get all courses
 // @route   GET /api/v1/courses
@@ -142,27 +143,27 @@ exports.courseVideoUpload = async (req, res, next) => {
 
         const file = req.files.file;
 
-        // Make sure it's a video
         if (!file.mimetype.startsWith('video')) {
             return next(new ErrorResponse('Please upload a video file', 400));
         }
 
-        // Check file size (100MB max)
         if (file.size > process.env.MAX_VIDEO_UPLOAD) {
             return next(new ErrorResponse(`Please upload a video less than ${process.env.MAX_VIDEO_UPLOAD / 1000000}MB`, 400));
         }
 
-        // Create custom filename
-        file.name = `video_${course._id}${path.parse(file.name).ext}`;
-
-        file.mv(`${process.env.VIDEO_UPLOAD_PATH}/${file.name}`, async (err) => {
-            if (err) {
-                console.error(err);
-                return next(new ErrorResponse('Problem with file upload', 500));
+        // Upload to Cloudinary via buffer stream
+        const uploadStream = cloudinary.uploader.upload_stream(
+            { folder: 'bootcam/videos', public_id: `video_${course._id}`, overwrite: true, resource_type: 'video' },
+            async (error, result) => {
+                if (error) {
+                    console.error(error);
+                    return next(new ErrorResponse('Problem with file upload', 500));
+                }
+                await Course.findByIdAndUpdate(req.params.id, { video: result.secure_url });
+                res.status(200).json({ success: true, data: result.secure_url });
             }
-            await Course.findByIdAndUpdate(req.params.id, { video: file.name });
-            res.status(200).json({ success: true, data: file.name });
-        });
+        );
+        uploadStream.end(file.data);
     } catch (error) {
         next(error);
     }
